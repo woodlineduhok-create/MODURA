@@ -1,9 +1,12 @@
-# Supabase Full Setup Guide
+# Supabase Final Setup Guide
 
-Run this ENTIRE script in your **Supabase SQL Editor** to create the tables, buckets, and disable RLS (allow all access) for testing.
+Run this ENTIRE script in your **Supabase SQL Editor** to ensure your database and storage are correctly configured for both local development and Netlify deployment.
 
 ```sql
--- 1. CREATE PRODUCTS TABLE
+-- 1. CLEAN START (Optional but recommended if you have issues)
+-- drop table if exists public.products;
+
+-- 2. CREATE PRODUCTS TABLE
 create table if not exists public.products (
   id uuid default gen_random_uuid() primary key,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
@@ -14,47 +17,33 @@ create table if not exists public.products (
   image text
 );
 
--- 2. ENABLE RLS (Required to use policies)
+-- 3. ENABLE RLS
 alter table public.products enable row level security;
 
--- 3. TABLE POLICIES (Allow Everyone)
-drop policy if exists "Public Access" on public.products;
-create policy "Public Access" on public.products for all using (true) with check (true);
+-- 4. TABLE POLICIES (Allow Anyone to Read/Write)
+drop policy if exists "Enable all for everyone" on public.products;
+create policy "Enable all for everyone" on public.products for all using (true) with check (true);
 
--- 4. STORAGE SETUP (Bucket)
--- This creates the bucket if it doesn't exist
+-- 5. STORAGE BUCKET
 insert into storage.buckets (id, name, public)
 values ('products', 'products', true)
-on conflict (id) do nothing;
+on conflict (id) do update set public = true;
 
--- 5. STORAGE POLICIES (Allow Everyone)
--- Note: We drop existing ones first to ensure a clean slate
-drop policy if exists "Public Access Select" on storage.objects;
-drop policy if exists "Public Access Insert" on storage.objects;
-drop policy if exists "Public Access Update" on storage.objects;
-drop policy if exists "Public Access Delete" on storage.objects;
-
--- Allow anyone to view images
-create policy "Public Access Select" on storage.objects for select using (bucket_id = 'products');
-
--- Allow anyone to upload images
-create policy "Public Access Insert" on storage.objects for insert with check (bucket_id = 'products');
-
--- Allow anyone to update images
-create policy "Public Access Update" on storage.objects for update with check (bucket_id = 'products');
-
--- Allow anyone to delete images
-create policy "Public Access Delete" on storage.objects for delete using (bucket_id = 'products');
+-- 6. STORAGE POLICIES (Allow anyone to manage images)
+drop policy if exists "Storage All Access" on storage.objects;
+create policy "Storage All Access" on storage.objects for all using (bucket_id = 'products') with check (bucket_id = 'products');
 ```
 
-## Real Credentials for your Secrets
-Add these to your **AI Studio Secrets** (Sidebar > Settings > Secrets):
-- `VITE_SUPABASE_URL`: `https://zdbpumgtoddzqkhouoev.supabase.co`
-- `VITE_SUPABASE_ANON_KEY`: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkYnB1bWd0b2RkenFraG91b2V2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5MTU4MTYsImV4cCI6MjA5MzQ5MTgxNn0._Ju-QuYWleEBw6BpToi-qo_sNBAa-gfJ8v_wDBbUuqs`
-- `VITE_SUPABASE_BUCKET`: `products`
+## Netlify Deployment Steps
+1. Push your code to GitHub.
+2. Connect your GitHub to Netlify.
+3. In Netlify **Site Settings > Build & deploy > Environment variables**, add:
+   - `VITE_SUPABASE_URL`: `https://zdbpumgtoddzqkhouoev.supabase.co`
+   - `VITE_SUPABASE_ANON_KEY`: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkYnB1bWd0b2RkenFraG91b2V2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5MTU4MTYsImV4cCI6MjA5MzQ5MTgxNn0._Ju-QuYWleEBw6BpToi-qo_sNBAa-gfJ8v_wDBbUuqs`
+   - `VITE_SUPABASE_BUCKET`: `products`
 
-## Setup Verification
-Go to the **Manager** (top right) in the app. Look for the **"Storage: active"** indicator:
-- 🟢 **Active**: Setup is correct!
-- 🔴 **Error**: Something is missing (usually the bucket doesn't exist yet).
+## Verification
+- **Manager Panel**: Open the Manager in your app. The "Storage" dot should be green.
+- **Persistence**: When you add a product, it should appear instantly. Refresh the page to confirm it's still there.
+- **Errors**: If a red popup appears, your Supabase tables or policies are likely not set up correctly. Copy and run the SQL above again.
 

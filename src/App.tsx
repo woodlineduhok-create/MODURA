@@ -27,19 +27,19 @@ export default function App() {
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('id', { ascending: false });
 
       if (error) throw error;
       
-      if (data && data.length > 0) {
+      if (data) {
         setProducts(data);
-      } else {
-        // Fallback to constants if DB is empty or not configured
-        setProducts(PRODUCTS);
       }
     } catch (err) {
       console.error('Error fetching products:', err);
-      setProducts(PRODUCTS);
+      // Only fallback to mock data if there's no state yet
+      if (products.length === 0) {
+        setProducts(PRODUCTS);
+      }
     } finally {
       setLoading(false);
     }
@@ -79,34 +79,38 @@ export default function App() {
       const { data, error } = await supabase
         .from('products')
         .insert([newProduct])
-        .select();
+        .select('*')
+        .single();
 
       if (error) throw error;
-      if (data) fetchProducts();
+      if (data) {
+        setProducts(prev => [data, ...prev]);
+      }
     } catch (err) {
       console.error('Error adding product:', err);
-      // Optimistic update for demo if Supabase fails
-      const product: Product = { ...newProduct, id: Math.random().toString(36).substr(2, 9) };
-      setProducts(prev => [product, ...prev]);
+      alert('Failed to save to Supabase. Please check your credentials and table structure.');
     }
   };
 
   const handleEditProduct = async (editedProduct: Product) => {
     try {
+      const { id, ...updateData } = editedProduct;
       const { error } = await supabase
         .from('products')
-        .update(editedProduct)
-        .eq('id', editedProduct.id);
+        .update(updateData)
+        .eq('id', id);
 
       if (error) throw error;
-      fetchProducts();
+      setProducts(prev => prev.map(p => p.id === id ? editedProduct : p));
     } catch (err) {
       console.error('Error editing product:', err);
-      setProducts(prev => prev.map(p => p.id === editedProduct.id ? editedProduct : p));
+      alert('Failed to update Supabase. Your changes may not have been saved.');
     }
   };
 
   const handleDeleteProduct = async (id: string) => {
+    if (!window.confirm('Delete this product permanently?')) return;
+    
     try {
       const { error } = await supabase
         .from('products')
@@ -114,10 +118,10 @@ export default function App() {
         .eq('id', id);
 
       if (error) throw error;
-      fetchProducts();
+      setProducts(prev => prev.filter(p => p.id !== id));
     } catch (err) {
       console.error('Error deleting product:', err);
-      setProducts(prev => prev.filter(p => p.id !== id));
+      alert('Failed to delete from Supabase.');
     }
   };
 
