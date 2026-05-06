@@ -36,10 +36,7 @@ export default function App() {
       }
     } catch (err) {
       console.error('Error fetching products:', err);
-      // Only fallback to mock data if there's no state yet
-      if (products.length === 0) {
-        setProducts(PRODUCTS);
-      }
+      // No fallback to mock data in production
     } finally {
       setLoading(false);
     }
@@ -86,9 +83,9 @@ export default function App() {
       if (data) {
         setProducts(prev => [data, ...prev]);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error adding product:', err);
-      alert('Failed to save to Supabase. Please check your credentials and table structure.');
+      alert(`Failed to save to Supabase: ${err.message || 'Unknown error'}. Check console for details.`);
     }
   };
 
@@ -102,9 +99,9 @@ export default function App() {
 
       if (error) throw error;
       setProducts(prev => prev.map(p => p.id === id ? editedProduct : p));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error editing product:', err);
-      alert('Failed to update Supabase. Your changes may not have been saved.');
+      alert(`Failed to update Supabase: ${err.message || 'Unknown error'}`);
     }
   };
 
@@ -119,9 +116,9 @@ export default function App() {
 
       if (error) throw error;
       setProducts(prev => prev.filter(p => p.id !== id));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error deleting product:', err);
-      alert('Failed to delete from Supabase.');
+      alert(`Failed to delete from Supabase: ${err.message || 'Unknown error'}`);
     }
   };
 

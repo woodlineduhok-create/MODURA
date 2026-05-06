@@ -17,20 +17,32 @@ export default function AdminPanel({ products, onAdd, onEdit, onDelete, onClose 
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [bucketStatus, setBucketStatus] = useState<'checking' | 'active' | 'error'>('checking');
+  const [tableStatus, setTableStatus] = useState<'checking' | 'active' | 'error'>('checking');
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
-    const checkBucket = async () => {
+    const checkSetup = async () => {
+      // Check Bucket
       const bucket = (import.meta.env.VITE_SUPABASE_BUCKET || 'products').trim();
-      const { error } = await supabase.storage.getBucket(bucket);
-      if (error) {
+      const { error: bucketError } = await supabase.storage.getBucket(bucket);
+      
+      if (bucketError) {
         setBucketStatus('error');
-        setErrorMessage(error.message);
+        setErrorMessage(bucketError.message);
       } else {
         setBucketStatus('active');
       }
+
+      // Check Table
+      const { error: tableError } = await supabase.from('products').select('id').limit(1);
+      if (tableError) {
+        setTableStatus('error');
+        if (!errorMessage) setErrorMessage(tableError.message);
+      } else {
+        setTableStatus('active');
+      }
     };
-    checkBucket();
+    checkSetup();
   }, []);
 
   return (
@@ -45,14 +57,30 @@ export default function AdminPanel({ products, onAdd, onEdit, onDelete, onClose 
             Back to Shop
           </button>
           <h2 className="text-xl font-bold tracking-tighter italic">Manager/Systems</h2>
-          <div className="flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full">
-            <div className={`w-1.5 h-1.5 rounded-full ${
-              bucketStatus === 'active' ? 'bg-green-500' : 
-              bucketStatus === 'checking' ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'
-            }`} />
-            <span className="text-[8px] font-bold tracking-widest uppercase text-gray-400">
-              Storage: {bucketStatus === 'error' ? `Error (${errorMessage})` : bucketStatus}
-            </span>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full">
+              <div className={`w-1.5 h-1.5 rounded-full ${
+                bucketStatus === 'active' ? 'bg-green-500' : 
+                bucketStatus === 'checking' ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'
+              }`} />
+              <span className="text-[8px] font-bold tracking-widest uppercase text-gray-400">
+                Storage: {bucketStatus}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full">
+              <div className={`w-1.5 h-1.5 rounded-full ${
+                tableStatus === 'active' ? 'bg-green-500' : 
+                tableStatus === 'checking' ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'
+              }`} />
+              <span className="text-[8px] font-bold tracking-widest uppercase text-gray-400">
+                Database: {tableStatus}
+              </span>
+            </div>
+            {(bucketStatus === 'error' || tableStatus === 'error') && (
+              <span className="text-[8px] text-red-500 font-bold uppercase tracking-widest animate-bounce">
+                Setup incomplete: {errorMessage}
+              </span>
+            )}
           </div>
         </div>
         <button 
@@ -124,7 +152,8 @@ export default function AdminPanel({ products, onAdd, onEdit, onDelete, onClose 
                 if (editingProduct) {
                   onEdit({ ...data, id: editingProduct.id } as Product);
                 } else {
-                  onAdd(data as Omit<Product, 'id'>);
+                  const { id: _, ...rest } = data;
+                  onAdd(rest as Omit<Product, 'id'>);
                 }
                 setIsAdding(false);
                 setEditingProduct(null);
