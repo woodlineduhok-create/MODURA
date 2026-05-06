@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { Product } from '../types';
 import { X, Plus, Edit2, Trash2, ArrowLeft } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import ProductForm from './ProductForm';
 import { supabase } from '../lib/supabase';
 
@@ -19,8 +19,25 @@ export default function AdminPanel({ products, onAdd, onEdit, onDelete, onClose 
   const [bucketStatus, setBucketStatus] = useState<'checking' | 'active' | 'error'>('checking');
   const [tableStatus, setTableStatus] = useState<'checking' | 'active' | 'error'>('checking');
   const [errorMessage, setErrorMessage] = useState('');
+  
+  // Login State
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loginCode, setLoginCode] = useState('');
+  const [loginError, setLoginError] = useState('');
+
+  const handleLogin = (e: FormEvent) => {
+    e.preventDefault();
+    if (loginCode === '134679') {
+      setIsAuthenticated(true);
+      setLoginError('');
+    } else {
+      setLoginError('Invalid security code');
+      setLoginCode('');
+    }
+  };
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     const checkSetup = async () => {
       // Check Bucket
       const bucket = (import.meta.env.VITE_SUPABASE_BUCKET || 'products').trim();
@@ -46,8 +63,65 @@ export default function AdminPanel({ products, onAdd, onEdit, onDelete, onClose 
   }, []);
 
   return (
-    <div className="fixed inset-0 bg-white z-[200] flex flex-col">
-      <header className="h-24 border-b border-gray-100 flex items-center justify-between px-12">
+    <div className="fixed inset-0 bg-white z-[200] flex flex-col font-sans">
+      <AnimatePresence mode="wait">
+        {!isAuthenticated ? (
+          <motion.div 
+            key="login"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="flex-1 flex flex-center items-center justify-center p-6 bg-black text-white"
+          >
+            <div className="w-full max-w-sm space-y-8 text-center">
+              <div className="space-y-4">
+                <h2 className="text-4xl font-bold tracking-tighter italic">Manager/Gate</h2>
+                <p className="text-gray-500 text-[10px] font-bold tracking-widest uppercase">Secret access only</p>
+              </div>
+              
+              <form onSubmit={handleLogin} className="space-y-6">
+                <input 
+                  type="password"
+                  value={loginCode}
+                  onChange={(e) => setLoginCode(e.target.value)}
+                  placeholder="ENTER ACCESS CODE"
+                  autoFocus
+                  className="w-full bg-white/5 border-b-2 border-white/20 px-4 py-4 text-white text-center text-2xl tracking-[1em] focus:outline-none focus:border-white transition-all placeholder:text-white/10 placeholder:tracking-normal placeholder:text-xs"
+                />
+                {loginError && <p className="text-red-500 text-[8px] font-bold uppercase tracking-widest animate-shake">{loginError}</p>}
+                
+                <div className="flex flex-col gap-4">
+                  <button 
+                    type="submit"
+                    className="w-full h-16 bg-white text-black text-[10px] font-bold tracking-widest uppercase hover:bg-gray-200 transition-all"
+                  >
+                    Authorize Session
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={onClose}
+                    className="text-[10px] text-gray-500 font-bold tracking-widest uppercase hover:text-white transition-all"
+                  >
+                    Abort Access
+                  </button>
+                </div>
+              </form>
+              
+              <div className="pt-12 flex justify-center gap-1">
+                {[1,2,3,4,5,6].map(i => (
+                  <div key={i} className={`w-1 h-1 rounded-full ${loginCode.length >= i ? 'bg-white' : 'bg-white/10'}`} />
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div 
+            key="dashboard"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex-1 flex flex-col overflow-hidden"
+          >
+            <header className="h-24 border-b border-gray-100 flex items-center justify-between px-12">
         <div className="flex items-center gap-8">
           <button 
             onClick={onClose}
@@ -163,6 +237,9 @@ export default function AdminPanel({ products, onAdd, onEdit, onDelete, onClose 
                 setEditingProduct(null);
               }}
             />
+          </motion.div>
+        )}
+      </AnimatePresence>
           </motion.div>
         )}
       </AnimatePresence>
